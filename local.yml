@@ -13,6 +13,16 @@
         path: /etc/profile.d/00-ansible-run-status.sh
         state: absent
 
+    - name: Ensure MOTD fragment directory exists
+      # Absent on minimal Ubuntu cloud images; ansible.builtin.copy does not
+      # create parent directories.
+      ansible.builtin.file:
+        path: /etc/motd.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
     - name: Publish login-banner run status (in progress / failed)
       ansible.builtin.copy:
         content: |
