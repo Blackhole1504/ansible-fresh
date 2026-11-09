@@ -2,7 +2,7 @@
 # Sudo policy hardening: passwordless sudo for exactly ONE admin user.
 # Detection (first match wins — no heuristics; ambiguity/absence fails):
 #   1. sudo_admin_user override (group_vars/all.yml)
-#   2. ansible_env.SUDO_USER (manual `sudo ansible-playbook/pull` runs)
+#   2. SUDO_USER environment fact (manual `sudo ansible-playbook/pull` runs)
 #   3. /etc/sudoers.d/90-cloud-init-users single grant (first boot — this
 #      is where Proxmox's --ciuser lands via cloud-init)
 #   4. our own previous drop-in (re-runs after the cloud-init file removal)
@@ -40,10 +40,10 @@
 - name: Detect via SUDO_USER (manual sudo runs)
   when:
     - sudo_hardening_admin_user | length == 0
-    - ansible_env.SUDO_USER is defined
-    - ansible_env.SUDO_USER != 'root'
+    - ansible_facts['env']['SUDO_USER'] is defined
+    - ansible_facts['env']['SUDO_USER'] != 'root'
   ansible.builtin.set_fact:
-    sudo_hardening_admin_user: "{{ ansible_env.SUDO_USER }}"
+    sudo_hardening_admin_user: "{{ ansible_facts['env']['SUDO_USER'] }}"
     sudo_hardening_detection_source: SUDO_USER fact
 
 - name: Extract granted users from cloud-init sudoers file
@@ -163,7 +163,7 @@
   ansible.builtin.set_fact:
     sudo_hardening_foreign_grants: >-
       {{ sudo_hardening_nopasswd_lines.stdout_lines | default([])
-         | map('regex_replace', '^[^:]+:[0-9]+:', '')
+         | map('regex_replace', '^[^:]+:', '')
          | map('trim')
          | reject('match', '^($|#)')
          | reject('match', '^' ~ sudo_hardening_admin_user ~ '([ \t]|$)')
