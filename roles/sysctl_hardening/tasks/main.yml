@@ -1,0 +1,10 @@
+---
+# Apply kernel/network sysctl hardening via a single drop-in file.
+- name: Deploy sysctl hardening drop-in
+  ansible.builtin.template:
+    src: sysctl-hardening.conf.j2
+    dest: /etc/sysctl.d/60-ansible-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Apply sysctl from all files

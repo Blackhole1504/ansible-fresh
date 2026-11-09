@@ -1,0 +1,3 @@
+# ansible-pull runs on the host itself; localhost only.
+# ansible_connection=local avoids needing ssh back to itself.
+localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3

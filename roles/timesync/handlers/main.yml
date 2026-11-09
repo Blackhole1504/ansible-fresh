@@ -1,0 +1,6 @@
+---
+# Handlers for the timesync role.
+- name: Restart systemd-timesyncd
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: restarted

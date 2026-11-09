@@ -1,0 +1,11 @@
+---
+# sshd handler for ssh_hardening.
+# Config sanity is already guaranteed by `validate: sshd -t -f %s` on the
+# template task, so the handler only reloads. NOTE: no `block:` here —
+# blocks in handlers require ansible-core 2.18+ and noble ships 2.16.
+# A reload (SIGHUP) never drops existing sessions; worst case sshd keeps
+# the old config and logs an error.
+- name: Reload sshd
+  ansible.builtin.systemd:
+    name: ssh
+    state: reloaded

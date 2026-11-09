@@ -1,0 +1,37 @@
+---
+# Lint CI — same checks as local development (configs at repo root).
+# No playbook execution: the target is localhost via ansible-pull.
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install linters
+        run: python -m pip install ansible-lint yamllint
+
+      - name: Install collections referenced by the playbook
+        # Mirrors the distro 'ansible' package, which bundles community.general.
+        run: ansible-galaxy collection install community.general
+
+      - name: yamllint
+        run: yamllint .
+
+      - name: ansible-lint
+        run: ansible-lint

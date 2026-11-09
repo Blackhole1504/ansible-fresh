@@ -1,0 +1,76 @@
+---
+# Baseline packages, timezone and service cleanup shared by all hosts.
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name: "{{ common_base_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set timezone to {{ common_timezone }}
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+
+- name: Check AppArmor is enabled (snapd removal must not break the LSM)
+  ansible.builtin.command:
+    cmd: aa-status --enabled
+  register: common_apparmor_check
+  changed_when: false
+  failed_when: false
+
+- name: Assert AppArmor is enabled
+  ansible.builtin.assert:
+    that:
+      - common_apparmor_check.rc == 0
+    fail_msg: >-
+      AppArmor is disabled or broken (aa-status --enabled rc={{ common_apparmor_check.rc }}).
+      snapd removal does not remove the apparmor package — check the kernel
+      cmdline (apparmor=1 security=apparmor) and the apparmor package.
+    success_msg: AppArmor enabled — LSM intact after snapd removal.
+
+- name: Set console keymap to {{ common_keymap }}
+  ansible.builtin.command:
+    cmd: localectl set-keymap {{ common_keymap }}
+  changed_when: false
+
+- name: Gather service facts
+  ansible.builtin.service_facts: {}
+
+- name: Stop, disable and mask unwanted services (only those present)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+  loop: "{{ common_disabled_services }}"
+  when: (item ~ '.service') in ansible_facts.services or item in ansible_facts.services
+
+- name: Remove snapd entirely (toggleable)
+  when: common_disable_snapd | bool
+  block:
+    - name: Stop snapd services (only those present)
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - snapd.service
+        - snapd.socket
+        - snapd.apparmor.service
+        - snapd.seeded.service
+      when: item in ansible_facts.services
+
+    - name: Mask snapd services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        masked: true
+      loop:
+        - snapd.service
+        - snapd.socket
+        - snapd.apparmor.service
+        - snapd.seeded.service
+
+    - name: Remove snapd package
+      ansible.builtin.apt:
+        name: snapd
+        state: absent
+        purge: true

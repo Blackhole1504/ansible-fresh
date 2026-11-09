@@ -1,0 +1,5 @@
+# Sudo policy drop-in managed by ansible-fresh (roles/sudo_hardening).
+# Grants passwordless sudo to exactly one detected admin user. cloud-init's
+# blanket 90-cloud-init-users grant is removed by the role; the stock %sudo
+# entry in the main /etc/sudoers (password required) is left untouched.
+{{ sudo_hardening_admin_user }} ALL=(ALL:ALL) NOPASSWD:ALL

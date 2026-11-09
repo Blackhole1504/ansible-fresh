@@ -1,0 +1,45 @@
+#cloud-config
+# =========================================================================
+# ansible-fresh bootstrap vendor-config (Proxmox cicustom vendor slot)
+# =========================================================================
+# Upload this file to a snippets storage on your Proxmox VE node, then set
+# it as the VM's vendor config:
+#
+#   qm set <vmid> --cicustom "vendor=local:snippets/ansible-fresh-vendor.yml"
+#
+# Vendor data merges BEFORE user data and runs in cloud-init's final stage.
+# Proxmox still generates its own user-data from the VM settings, so:
+#   * identity: --ciuser and --sshkey stay the source of truth (the admin
+#     user they create is detected by the sudo_hardening role)
+#   * package upgrade: PVE's generated user-data performs it on first boot
+#     (ciupgrade defaults on) — this file deliberately has no package_*
+#     keys to avoid upgrading twice
+#
+# Prerequisites:
+#   * Your SSH public key(s) must be provided via --sshkey — the playbook
+#     enforces key-only login and refuses to run without at least one
+#     authorized key.
+#   * Snippets storage must be available on all nodes the VM can migrate to.
+# =========================================================================
+
+packages:
+  - ansible
+  - git
+
+write_files:
+  - path: /etc/ansible/ansible-pull-extra-vars.yaml
+    permissions: "0640"
+    owner: root:root
+    content: |
+      # Per-deployment overrides, merged over group_vars/all.yml.
+      # Example:
+      # firewall_allowed_tcp_ports:
+      #   - "22"
+      #   - "443"
+      {}
+
+runcmd:
+  # NOTE: must stay a single command — cloud-init runs each list item via
+  # sh -c; a multi-line string would be split into broken fragments.
+  # (This file is excluded from yamllint, so the long line is fine.)
+  - [ansible-pull, -U, "https://github.com/Blackhole1504/ansible-fresh.git", --clean, --accept-host-key, -e, "@/etc/ansible/ansible-pull-extra-vars.yaml", -v]

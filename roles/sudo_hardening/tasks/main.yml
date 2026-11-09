@@ -1,0 +1,197 @@
+---
+# Sudo policy hardening: passwordless sudo for exactly ONE admin user.
+# Detection (first match wins — no heuristics; ambiguity/absence fails):
+#   1. sudo_admin_user override (group_vars/all.yml)
+#   2. ansible_env.SUDO_USER (manual `sudo ansible-playbook/pull` runs)
+#   3. /etc/sudoers.d/90-cloud-init-users single grant (first boot — this
+#      is where Proxmox's --ciuser lands via cloud-init)
+#   4. our own previous drop-in (re-runs after the cloud-init file removal)
+#   5. `user:` key in cloud-init's cached user-data (last artifact source)
+
+- name: Read cloud-init sudoers grants (detection source)
+  ansible.builtin.slurp:
+    src: /etc/sudoers.d/90-cloud-init-users
+  register: sudo_hardening_cloudinit_sudoers_raw
+  failed_when: false
+
+- name: Read our previous sudo drop-in (detection source)
+  ansible.builtin.slurp:
+    src: /etc/sudoers.d/00-ansible-hardening
+  register: sudo_hardening_own_sudoers_raw
+  failed_when: false
+
+- name: Read cloud-init cached user-data (detection source)
+  ansible.builtin.slurp:
+    src: /var/lib/cloud/instance/user-data.txt
+  register: sudo_hardening_userdata_raw
+  failed_when: false
+
+- name: Initialize detection result
+  ansible.builtin.set_fact:
+    sudo_hardening_admin_user: ""
+    sudo_hardening_detection_source: ""
+
+- name: Use sudo_admin_user override
+  when: sudo_admin_user | default("") | length > 0
+  ansible.builtin.set_fact:
+    sudo_hardening_admin_user: "{{ sudo_admin_user }}"
+    sudo_hardening_detection_source: sudo_admin_user override
+
+- name: Detect via SUDO_USER (manual sudo runs)
+  when:
+    - sudo_hardening_admin_user | length == 0
+    - ansible_env.SUDO_USER is defined
+    - ansible_env.SUDO_USER != 'root'
+  ansible.builtin.set_fact:
+    sudo_hardening_admin_user: "{{ ansible_env.SUDO_USER }}"
+    sudo_hardening_detection_source: SUDO_USER fact
+
+- name: Extract granted users from cloud-init sudoers file
+  when:
+    - sudo_hardening_admin_user | length == 0
+    - sudo_hardening_cloudinit_sudoers_raw.content is defined
+  ansible.builtin.set_fact:
+    sudo_hardening_cloudinit_grants: >-
+      {{ sudo_hardening_cloudinit_sudoers_raw.content | b64decode
+         | regex_findall('(?m)^([a-z_][a-z0-9_-]*)[ \t]+ALL=') | unique | list }}
+
+- name: Resolve via cloud-init grant (exactly one NOPASSWD user)
+  when:
+    - sudo_hardening_admin_user | length == 0
+    - sudo_hardening_cloudinit_grants | default([]) | length == 1
+  ansible.builtin.set_fact:
+    sudo_hardening_admin_user: "{{ sudo_hardening_cloudinit_grants[0] }}"
+    sudo_hardening_detection_source: cloud-init sudoers grant
+
+- name: Extract granted user from our previous drop-in
+  when:
+    - sudo_hardening_admin_user | length == 0
+    - sudo_hardening_own_sudoers_raw.content is defined
+  ansible.builtin.set_fact:
+    sudo_hardening_own_grant: >-
+      {{ sudo_hardening_own_sudoers_raw.content | b64decode
+         | regex_findall('(?m)^([a-z_][a-z0-9_-]*)[ \t]+ALL=') | unique | list }}
+
+- name: Resolve via our previous drop-in (self-persistence)
+  when:
+    - sudo_hardening_admin_user | length == 0
+    - sudo_hardening_own_grant | default([]) | length == 1
+  ansible.builtin.set_fact:
+    sudo_hardening_admin_user: "{{ sudo_hardening_own_grant[0] }}"
+    sudo_hardening_detection_source: previous ansible-fresh drop-in
+
+- name: Extract user key from cloud-init cached user-data
+  when:
+    - sudo_hardening_admin_user | length == 0
+    - sudo_hardening_userdata_raw.content is defined
+  ansible.builtin.set_fact:
+    sudo_hardening_userdata_user: >-
+      {{ sudo_hardening_userdata_raw.content | b64decode
+         | regex_findall('(?m)^user:[ \t]*([a-z_][a-z0-9_-]*)[ \t]*$')
+         | first | default("") }}
+
+- name: Resolve via cloud-init user-data user key
+  when:
+    - sudo_hardening_admin_user | length == 0
+    - sudo_hardening_userdata_user | default("") | length > 0
+  ansible.builtin.set_fact:
+    sudo_hardening_admin_user: "{{ sudo_hardening_userdata_user }}"
+    sudo_hardening_detection_source: cloud-init user-data user key
+
+- name: Refuse to continue without an unambiguous admin user (lockout guard)
+  ansible.builtin.assert:
+    that:
+      - sudo_hardening_admin_user | length > 0
+    fail_msg: >-
+      Could not resolve a single admin user: no sudo_admin_user override,
+      no usable SUDO_USER, no single cloud-init NOPASSWD grant, no previous
+      ansible-fresh drop-in and no user-data 'user:' key. Ambiguous or
+      absent detection never guesses — set sudo_admin_user in
+      group_vars/all.yml and re-run.
+    success_msg: "Admin user resolved: {{ sudo_hardening_admin_user }} (via {{ sudo_hardening_detection_source }})."
+
+- name: Validate admin user format (before any use in a command)
+  ansible.builtin.assert:
+    that:
+      - sudo_hardening_admin_user is match('^[a-z_][a-z0-9_-]{0,31}$')
+    fail_msg: >-
+      Resolved admin user '{{ sudo_hardening_admin_user }}' is malformed
+      (expected ^[a-z_][a-z0-9_-]{0,31}$). Fix the detection source or set
+      sudo_admin_user explicitly.
+    success_msg: Admin user name is sudoers-safe.
+
+- name: Verify admin user exists on this host
+  ansible.builtin.command:
+    cmd: getent passwd {{ sudo_hardening_admin_user }}
+  register: sudo_hardening_user_check
+  changed_when: false
+  failed_when: false
+
+- name: Assert admin user exists in passwd
+  ansible.builtin.assert:
+    that:
+      - sudo_hardening_user_check.rc == 0
+    fail_msg: >-
+      Resolved admin user '{{ sudo_hardening_admin_user }}' is missing from
+      passwd (getent rc={{ sudo_hardening_user_check.rc }}). Fix the
+      detection source or set sudo_admin_user explicitly.
+    success_msg: Admin user present on this host.
+
+- name: Install sole NOPASSWD drop-in for the admin user
+  ansible.builtin.template:
+    src: 00-ansible-hardening.j2
+    dest: /etc/sudoers.d/00-ansible-hardening
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Remove cloud-init blanket NOPASSWD grants
+  when: sudo_remove_cloudinit_sudoers | bool
+  ansible.builtin.file:
+    path: /etc/sudoers.d/90-cloud-init-users
+    state: absent
+
+- name: List all NOPASSWD lines in /etc/sudoers.d (policy audit)
+  ansible.builtin.command:
+    cmd: grep -r NOPASSWD /etc/sudoers.d
+  register: sudo_hardening_nopasswd_lines
+  changed_when: false
+  failed_when: false
+
+- name: Compute foreign NOPASSWD grants (not the admin user)
+  ansible.builtin.set_fact:
+    sudo_hardening_foreign_grants: >-
+      {{ sudo_hardening_nopasswd_lines.stdout_lines | default([])
+         | map('regex_replace', '^[^:]+:[0-9]+:', '')
+         | map('trim')
+         | reject('match', '^($|#)')
+         | reject('match', '^' ~ sudo_hardening_admin_user ~ '([ \t]|$)')
+         | list }}
+
+- name: Assert the admin user holds the only NOPASSWD grants
+  ansible.builtin.assert:
+    that:
+      - sudo_hardening_foreign_grants | length == 0
+    fail_msg: >-
+      Foreign NOPASSWD grants remain in /etc/sudoers.d (expected only
+      {{ sudo_hardening_admin_user }}):
+      {{ sudo_hardening_foreign_grants | join(' | ') }}. Remove them or
+      make them password-required, then re-run.
+    success_msg: >-
+      {{ sudo_hardening_admin_user }} holds the only NOPASSWD grants in
+      /etc/sudoers.d.
+
+- name: Sudo policy summary
+  ansible.builtin.debug:
+    msg: >-
+      Passwordless sudo is now restricted to '{{ sudo_hardening_admin_user }}'
+      (detected via {{ sudo_hardening_detection_source }}) through
+      /etc/sudoers.d/00-ansible-hardening;
+      {% if sudo_remove_cloudinit_sudoers | bool %}
+      cloud-init's 90-cloud-init-users was removed;
+      {% else %}
+      cloud-init's 90-cloud-init-users was kept (toggle off);
+      {% endif %}
+      no other NOPASSWD grants remain. Other users keep password-required
+      sudo through the stock %sudo entry in /etc/sudoers.

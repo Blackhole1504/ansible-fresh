@@ -1,0 +1,10 @@
+---
+# ansible-lint configuration — run locally and in CI (.github/workflows/lint.yml).
+# Run: ansible-lint
+profile: basic
+skip_list:
+  - name[template]  # role names use underscores by convention here
+  - var-naming[no-role-prefix]  # group_vars use plain names by design
+exclude_paths:
+  - .cache/
+  - cloud-init/  # '#cloud-config' must be line 1; incompatible with yaml rules

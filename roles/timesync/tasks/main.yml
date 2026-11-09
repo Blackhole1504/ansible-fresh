@@ -1,0 +1,32 @@
+---
+# Ensure systemd-timesyncd is the active, configured NTP client.
+- name: Ensure systemd-timesyncd is installed
+  ansible.builtin.package:
+    name: systemd-timesyncd
+    state: present
+
+# template does not create parent directories, and this .d dir is not
+# shipped by default on Ubuntu.
+- name: Ensure timesyncd drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/timesyncd.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy timesyncd drop-in configuration
+  ansible.builtin.template:
+    src: timesyncd.conf.j2
+    dest: /etc/systemd/timesyncd.conf.d/10-ansible.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart systemd-timesyncd
+
+- name: Enable and start systemd-timesyncd
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: started
+    enabled: true
+    masked: false

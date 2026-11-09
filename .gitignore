@@ -1,0 +1,8 @@
+*.retry
+.cache/
+.ansible/
+*.log
+.vscode/
+.idea/
+ansible-fresh.code-workspace
+/secrets/

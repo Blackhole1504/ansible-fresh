@@ -1,0 +1,6 @@
+---
+# Handlers for sysctl_hardening.
+- name: Apply sysctl from all files
+  ansible.builtin.command:
+    cmd: sysctl --system
+  changed_when: false

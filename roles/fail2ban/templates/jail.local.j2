@@ -1,0 +1,12 @@
+# fail2ban jail configuration managed by ansible-fresh.
+[DEFAULT]
+ignoreip = {{ fail2ban_ignoreip | join(' ') }}
+bantime = {{ fail2ban_bantime }}
+findtime = {{ fail2ban_findtime }}
+maxretry = {{ fail2ban_maxretry }}
+backend = {{ fail2ban_backend }}
+banaction = {{ fail2ban_banaction }}
+
+[sshd]
+enabled = {{ 'true' if fail2ban_sshd_enabled else 'false' }}
+port = {{ ssh_port }}

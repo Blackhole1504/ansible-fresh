@@ -1,0 +1,12 @@
+---
+# Handlers for auditd.
+# NOTE: auditd on Ubuntu ships RefuseManualStop=true on its unit, so plain
+# `systemctl restart auditd` is refused. The init-script path via `service`
+# is the upstream-documented way to restart it.
+- name: Restart auditd  # noqa: command-instead-of-module
+  ansible.builtin.command:
+    cmd: service auditd restart
+
+- name: Load audit rules
+  ansible.builtin.command:
+    cmd: augenrules --load

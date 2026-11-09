@@ -1,0 +1,24 @@
+---
+# Optional nginx reverse-proxy role — runs only when reverse_proxy_enabled
+# is true (see local.yml). Ordered before firewall so ports 80/443 are
+# allowlisted when UFW enables default-deny (the ports are appended in
+# group_vars/all.yml via firewall_allowed_tcp_ports).
+# Site definitions are yours to manage (sites-available + symlink); this
+# role only provides a clean, running nginx.
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Remove default site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Enable and start nginx
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started

@@ -1,0 +1,21 @@
+---
+# yamllint configuration — local lint only.
+# NOTE: cloud-init/ is excluded because '#cloud-config' must be the exact
+# first line of a user-data file, which conflicts with document-start and
+# comment-spacing rules.
+extends: default
+rules:
+  line-length:
+    max: 140
+  truthy:
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+ignore: |
+  cloud-init/
+  .cache/

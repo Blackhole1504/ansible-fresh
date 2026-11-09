@@ -1,0 +1,26 @@
+// Managed by ansible-fresh — automatic security updates.
+Unattended-Upgrade::Allowed-Origins {
+        "${distro_id}:${distro_codename}";
+        "${distro_id}:${distro_codename}-security";
+        "${distro_id}ESMApps:${distro_codename}-apps-security";
+        "${distro_id}ESM:${distro_codename}-infra-security";
+};
+
+Unattended-Upgrade::Package-Blacklist {
+};
+
+// Remove unused dependencies after upgrades (like apt autoremove).
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// Remove redundant packages (e.g. old kernels) after upgrades.
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+
+// Email is disabled; rely on logs in /var/log/unattended-upgrades/.
+Unattended-Upgrade::Mail "false";
+
+// Automatic reboot (default off — see group_vars/all.yml).
+Unattended-Upgrade::Automatic-Reboot "{{ 'true' if unattended_automatic_reboot else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ unattended_automatic_reboot_time }}";
+
+// Enable reporting via syslog.
+Unattended-Upgrade::SyslogEnable "true";

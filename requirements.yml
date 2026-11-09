@@ -1,0 +1,9 @@
+---
+# No external collections or roles are required at runtime.
+# The playbook uses ansible.builtin modules plus community.general.ufw,
+# both shipped inside the full `ansible` .deb installed by cloud-init.
+#
+# Do NOT switch to `ansible-core` only — community.general would be missing.
+# ---
+collections: []
+roles: []

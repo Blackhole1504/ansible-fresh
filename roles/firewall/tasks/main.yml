@@ -1,0 +1,74 @@
+---
+# UFW baseline: default-deny incoming, allow established + SSH.
+# Runs AFTER ssh_hardening in local.yml — the SSH allow rule is what
+# prevents lockout when default-deny is enabled below.
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Refuse to enable firewall if SSH port is not allowlisted (lockout guard)
+  ansible.builtin.assert:
+    that:
+      - ssh_port | string in firewall_allowed_tcp_ports | map('string') | list
+    fail_msg: >-
+      firewall_allowed_tcp_ports does not include the SSH port ({{ ssh_port }}).
+      Refusing to enable default-deny — you would be locked out.
+    success_msg: SSH port {{ ssh_port }} is allowlisted — safe to continue.
+
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "{{ ssh_port }}"
+    proto: tcp
+    comment: SSH (managed by ansible-fresh)
+
+- name: Allow additional TCP ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    comment: ansible-fresh allowlist
+  loop: "{{ firewall_allowed_tcp_ports | map('string') | list | difference([ssh_port | string]) }}"
+
+- name: Allow additional UDP ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: udp
+    comment: ansible-fresh allowlist
+  loop: "{{ firewall_allowed_udp_ports }}"
+
+- name: Set default incoming policy ({{ firewall_default_incoming }})
+  community.general.ufw:
+    direction: incoming
+    policy: "{{ firewall_default_incoming }}"
+
+- name: Set default outgoing policy ({{ firewall_default_outgoing }})
+  community.general.ufw:
+    direction: outgoing
+    policy: "{{ firewall_default_outgoing }}"
+
+- name: Set logging level ({{ firewall_logging }})
+  community.general.ufw:
+    logging: "{{ firewall_logging }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+- name: Verify host is still reachable (self-ping through UFW)
+  ansible.builtin.command:
+    cmd: ping -c 2 -W 2 {{ ansible_default_ipv4.address }}
+  register: firewall_self_ping
+  changed_when: false
+
+- name: Assert self-ping succeeded
+  ansible.builtin.assert:
+    that:
+      - firewall_self_ping.rc == 0
+    fail_msg: >-
+      Self-ping to {{ ansible_default_ipv4.address }} failed after enabling
+      UFW. UFW's shipped before.rules allows ICMP echo by default, so this
+      points at a broken ruleset — investigate before continuing.
+    success_msg: Self-ping OK — host reachable through UFW.

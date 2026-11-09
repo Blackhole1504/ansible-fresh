@@ -1,0 +1,37 @@
+---
+# auditd with a minimal CIS-derived ruleset.
+- name: Install auditd and plugins
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - audispd-plugins
+    state: present
+
+- name: Configure auditd log retention (max_log_file_action)
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^max_log_file_action\s*='
+    line: "max_log_file_action = {{ auditd_max_log_file_action }}"
+  notify: Restart auditd
+
+- name: Configure auditd low-disk behaviour (admin_space_left_action)
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^admin_space_left_action\s*='
+    line: "admin_space_left_action = {{ auditd_admin_space_left_action }}"
+  notify: Restart auditd
+
+- name: Deploy audit rules
+  ansible.builtin.template:
+    src: audit.rules.j2
+    dest: /etc/audit/rules.d/50-ansible-hardening.rules
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Load audit rules
+
+- name: Enable and start auditd
+  ansible.builtin.systemd:
+    name: auditd
+    state: started
+    enabled: true

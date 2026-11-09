@@ -1,0 +1,35 @@
+---
+# Lockout guard: refuse to disable password auth if no authorized SSH key
+# exists for any non-root user (or root) on this host.
+- name: Find authorized_keys files for all users with a home directory
+  ansible.builtin.find:
+    paths: /home
+    patterns: authorized_keys
+    recurse: true
+    hidden: true
+  register: ssh_user_authorized_keys
+
+- name: Check root authorized_keys
+  ansible.builtin.stat:
+    path: /root/.ssh/authorized_keys
+  register: ssh_root_authorized_keys
+
+- name: Refuse to continue without any SSH key on the host (lockout guard)
+  ansible.builtin.assert:
+    that:
+      - ssh_user_authorized_keys.matched > 0 or ssh_root_authorized_keys.stat.exists
+    fail_msg: >-
+      No authorized_keys found under /home or /root. Refusing to disable
+      password authentication — you would be locked out. Provide an SSH key
+      via cloud-init (ssh_authorized_users) and retry.
+    success_msg: At least one authorized key present — safe to harden SSH.
+
+- name: Install our sshd drop-in (00- wins over cloud-init's 50-)
+  ansible.builtin.template:
+    src: sshd_config-hardening.conf.j2
+    dest: "{{ ssh_managed_dropin }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: sshd -t -f %s
+  notify: Reload sshd

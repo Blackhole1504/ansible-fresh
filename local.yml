@@ -1,0 +1,75 @@
+---
+# ansible-fresh entrypoint for ansible-pull / local runs.
+# Runs against localhost with root privileges on the fresh server.
+- name: Harden fresh Ubuntu server (cloud-init + ansible-pull)
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Mark run as in-progress (red prompt)
+      ansible.builtin.copy:
+        content: |
+          # ansible-fresh run status: RUNNING/FAILED
+          PS1='\[\e[0;31m\]\u@\h:\w\#\[\e[0m\] '
+        dest: /etc/profile.d/00-ansible-run-status.sh
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Verify this is a supported Ubuntu release
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version in supported_ubuntu_versions
+        fail_msg: >-
+          Unsupported OS: {{ ansible_facts.distribution }}
+          {{ ansible_facts.distribution_version }}.
+          Supported: Ubuntu {{ supported_ubuntu_versions | join(', ') }}.
+        success_msg: >-
+          Supported target: Ubuntu {{ ansible_facts.distribution_version }}
+
+  roles:
+    - role: common
+      tags: [common]
+    - role: timesync
+      tags: [timesync]
+    - role: ssh_hardening
+      tags: [ssh_hardening]
+    - role: sudo_hardening
+      tags: [sudo_hardening]
+    - role: docker_host
+      tags: [docker_host]
+      when: docker_host_enabled | bool
+    - role: sysctl_hardening
+      tags: [sysctl_hardening]
+    - role: unattended_upgrades
+      tags: [unattended_upgrades]
+    - role: reverse_proxy
+      tags: [reverse_proxy]
+      when: reverse_proxy_enabled | bool
+    - role: firewall
+      tags: [firewall]
+    - role: fail2ban
+      tags: [fail2ban]
+    - role: auditd
+      tags: [auditd]
+
+  post_tasks:
+    - name: Mark run as successful (blue prompt)
+      ansible.builtin.copy:
+        content: |
+          # ansible-fresh run status: OK
+          PS1='\[\e[0;34m\]\u@\h:\w\#\[\e[0m\] '
+        dest: /etc/profile.d/00-ansible-run-status.sh
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Hardening complete
+      ansible.builtin.debug:
+        msg: >-
+          All roles applied. SSH is key-only on port {{ ssh_port }}; UFW denies
+          by default. Verify you can open a NEW ssh session before closing
+          this one.
