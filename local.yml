@@ -8,12 +8,17 @@
   gather_facts: true
 
   pre_tasks:
-    - name: Mark run as in-progress (red prompt)
+    - name: Remove legacy prompt marker from earlier runs
+      ansible.builtin.file:
+        path: /etc/profile.d/00-ansible-run-status.sh
+        state: absent
+
+    - name: Publish login-banner run status (in progress / failed)
       ansible.builtin.copy:
         content: |
-          # ansible-fresh run status: RUNNING/FAILED
-          PS1='\[\e[0;31m\]\u@\h:\w\#\[\e[0m\] '
-        dest: /etc/profile.d/00-ansible-run-status.sh
+          ansible-fresh: hardening IN PROGRESS (or FAILED — a successful run replaces this banner).
+            Logs: cloud-init status --long, /var/log/cloud-init-output.log
+        dest: /etc/motd.d/0-ansible-fresh-status
         owner: root
         group: root
         mode: "0644"
@@ -57,12 +62,11 @@
       tags: [auditd]
 
   post_tasks:
-    - name: Mark run as successful (blue prompt)
+    - name: Publish login-banner run status (success)
       ansible.builtin.copy:
         content: |
-          # ansible-fresh run status: OK
-          PS1='\[\e[0;34m\]\u@\h:\w\#\[\e[0m\] '
-        dest: /etc/profile.d/00-ansible-run-status.sh
+          ansible-fresh: baseline hardening applied successfully.
+        dest: /etc/motd.d/0-ansible-fresh-status
         owner: root
         group: root
         mode: "0644"

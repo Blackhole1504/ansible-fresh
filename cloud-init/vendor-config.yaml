@@ -5,7 +5,7 @@
 # Upload this file to a snippets storage on your Proxmox VE node, then set
 # it as the VM's vendor config:
 #
-#   qm set <vmid> --cicustom "vendor=local:snippets/ansible-fresh-vendor.yml"
+#   qm set <vmid> --cicustom "vendor=local:snippets/vendor-config.yaml"
 #
 # Vendor data merges BEFORE user data and runs in cloud-init's final stage.
 # Proxmox still generates its own user-data from the VM settings, so:

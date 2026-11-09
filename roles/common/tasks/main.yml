@@ -28,10 +28,31 @@
       cmdline (apparmor=1 security=apparmor) and the apparmor package.
     success_msg: AppArmor enabled — LSM intact after snapd removal.
 
-- name: Set console keymap to {{ common_keymap }}
+- name: Validate common_keymap value
+  ansible.builtin.assert:
+    that: common_keymap is match('^[a-zA-Z0-9._-]+$')
+    fail_msg: >-
+      common_keymap must match [a-zA-Z0-9._-]+ — refusing to interpolate it
+      into a localectl command line.
+    success_msg: common_keymap charset OK.
+
+- name: Set console keymap to {{ common_keymap }} (best-effort)
   ansible.builtin.command:
     cmd: localectl set-keymap {{ common_keymap }}
-  changed_when: false
+  register: common_keymap_result
+  changed_when: common_keymap_result.rc == 0
+  failed_when: false
+
+- name: Warn when the console keymap could not be set
+  ansible.builtin.debug:
+    msg: >-
+      localectl set-keymap failed (rc={{ common_keymap_result.rc }}):
+      {{ common_keymap_result.stderr | default('no stderr') | trim }}.
+      Cosmetic only — SSH sessions use the client's keymap. To fix the
+      console layout, run 'sudo localectl set-keymap {{ common_keymap }}'
+      from an interactive shell.
+    verbosity: 0
+  when: common_keymap_result.rc != 0
 
 - name: Gather service facts
   ansible.builtin.service_facts: {}

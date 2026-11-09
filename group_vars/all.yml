@@ -19,6 +19,7 @@ reverse_proxy_enabled: false
 
 # --- common role ----------------------------------------------------------
 common_timezone: Europe/Paris
+# Console keymap — best-effort (SSH sessions use the client's layout).
 common_keymap: fr
 # Packages installed on every server (beyond the hardening tooling itself).
 common_base_packages:

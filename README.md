@@ -54,7 +54,7 @@ cloud-init ──▶ ansible-pull (git clone) ──▶ local.yml ──▶ 9 ha
 Verify after boot:
 
 ```
-ssh <name>@<server>
+ssh <name>@<server>        # login banner: 'ansible-fresh: baseline hardening applied successfully.'
 cloud-init status --wait   # → 'status: done'
 sshd -T | grep -Ei 'permitrootlogin|passwordauthentication'
 sudo -l                    # → '(root) NOPASSWD: ALL' for <name> only
