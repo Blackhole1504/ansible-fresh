@@ -54,9 +54,13 @@ ssh_client_alive_count_max: 2
 ssh_login_grace_time: 30
 ssh_max_auth_tries: 3
 ssh_max_sessions: 4
-# CIS-derived modern algorithm policy (OpenSSH 8.x+ on 24.04/26.04).
+# CIS-derived modern algorithm policy. Supported targets: OpenSSH 9.6
+# (Ubuntu 24.04) through 10.x (26.04) — sshd rejects the WHOLE list if any
+# name is unknown to it, so only names valid across that whole range belong
+# here. sntrup761x25519-sha512@openssh.com (not the 9.9+ bare
+# 'sntrup761x25519-sha512' alias, unknown to 9.6) and NOT mlkem768x25519-sha256
+# (10.x default, unknown to 9.6).
 ssh_kex_algorithms:
-  - sntrup761x25519-sha1@openssh.com
   - sntrup761x25519-sha512@openssh.com
   - curve25519-sha256
   - curve25519-sha256@libssh.org
