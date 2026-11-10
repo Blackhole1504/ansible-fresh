@@ -94,5 +94,5 @@
       # cloud-init would record the run as failed. `shutdown -r +1` lets the
       # play exit green first; cancel within the minute with `shutdown -c`.
       ansible.builtin.command:
-        cmd: shutdown -r +1 "ansible-fresh: rebooting to finalize hardening"
+        cmd: 'shutdown -r +1 "ansible-fresh: rebooting to finalize hardening"'
       changed_when: true
