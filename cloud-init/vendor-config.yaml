@@ -42,4 +42,4 @@ runcmd:
   # NOTE: must stay a single command — cloud-init runs each list item via
   # sh -c; a multi-line string would be split into broken fragments.
   # (This file is excluded from yamllint, so the long line is fine.)
-  - [ansible-pull, -U, "https://github.com/Blackhole1504/ansible-fresh.git", --clean, --accept-host-key, -e, "@/etc/ansible/ansible-pull-extra-vars.yaml", -v]
+  - [ansible-pull, -U, "https://github.com/Blackhole1504/ansible-fresh.git", --clean, --accept-host-key, -e, "@/etc/ansible/ansible-pull-extra-vars.yaml"]

@@ -28,7 +28,7 @@ common_base_packages:
   - jq
   - ca-certificates
   - util-linux-extra  # provides hwclock, needed by community.general.timezone on 24.04+
-  - qemu-guest-agent  # PVE integration: IP reporting, clean shutdowns, qm guest cmds
+  - qemu-guest-agent
 # Services to stop, disable and mask. Remove entries you rely on.
 # snapd: masked because nothing on a hardened minimal server needs it;
 # set common_disable_snapd: false to keep snap working.
