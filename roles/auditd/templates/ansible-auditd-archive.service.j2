@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Rotate audit logs (ansible-fresh age-based retention)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/logrotate /etc/logrotate.d/ansible-audit
+Nice=10
+IOSchedulingClass=idle

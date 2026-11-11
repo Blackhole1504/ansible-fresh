@@ -2,7 +2,6 @@
 # =========================================================================
 # ansible-fresh — central tunables (single source of truth)
 # Override per-deployment by passing -e @your-vars.yml to ansible-pull,
-# or by editing this file in your fork.
 # =========================================================================
 
 # --- Release support (local.yml pre-task guard) --------------------------
@@ -19,7 +18,6 @@ reverse_proxy_enabled: false
 
 # --- common role ----------------------------------------------------------
 common_timezone: Europe/Paris
-# Console keymap — best-effort (SSH sessions use the client's layout).
 common_keymap: fr
 # Packages installed on every server (beyond the hardening tooling itself).
 common_base_packages:
@@ -30,7 +28,6 @@ common_base_packages:
   - util-linux-extra  # provides hwclock, needed by community.general.timezone on 24.04+
   - qemu-guest-agent
 # Services to stop, disable and mask. Remove entries you rely on.
-# snapd: masked because nothing on a hardened minimal server needs it;
 # set common_disable_snapd: false to keep snap working.
 common_disabled_services:
   - rpcbind
@@ -40,7 +37,6 @@ common_disabled_services:
 common_disable_snapd: true
 
 # --- timesync role --------------------------------------------------------
-# systemd-timesyncd (already on Ubuntu cloud images; no extra packages).
 timesync_ntp_servers:
   - ntp.ubuntu.com
   - time.cloudflare.com
@@ -175,8 +171,20 @@ fail2ban_banaction: ufw
 fail2ban_sshd_enabled: true
 
 # --- auditd role -------------------------------------------------------------
-auditd_max_log_file_action: keep_logs
+# Retention is age-based only: auditd's own size/number rotation is disabled
+# (max_log_file_action=ignore, max_log_file buffer sized to never trigger)
+# and a daily timer rotates the log via logrotate copytruncate, keeping
+# auditd_retention_days plain-text daily files (~6 months). Deliberate
+# deviation from CIS 4.1.2.3 (keep_logs) for bounded disk usage.
+# Disk guards: syslog warning at 1500 MB free, halt at 1000 MB (fail-closed).
+# The warning threshold MUST stay above the halt threshold to be reachable.
+auditd_max_log_file_mb: 2048
+auditd_max_log_file_action: ignore
+auditd_space_left_mb: 1500
+auditd_space_left_action: syslog
+auditd_admin_space_left_mb: 1000
 auditd_admin_space_left_action: halt
+auditd_retention_days: 180
 # Minimal CIS-derived ruleset; extend via this list.
 # Deliberately excludes rule classes that generate extreme log volume
 # (every open/exec by every user).

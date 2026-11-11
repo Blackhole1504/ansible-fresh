@@ -10,3 +10,9 @@
 - name: Load audit rules
   ansible.builtin.command:
     cmd: augenrules --load
+
+- name: Restart auditd archive timer
+  ansible.builtin.systemd:
+    name: ansible-auditd-archive.timer
+    state: restarted
+    daemon_reload: true

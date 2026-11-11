@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# Age-based rotation only for the audit log (ansible-fresh auditd role).
+# Size/number triggers are disabled in auditd.conf (max_log_file_action=ignore);
+# this policy keeps one plain-text file per day for {{ auditd_retention_days }}
+# days (~6 months). copytruncate lets auditd keep its fd (no restart needed);
+# events written between copy and truncate may be lost (accepted trade-off).
+# NOTE: also picked up by the system logrotate run; shared state file prevents
+# double rotation on the same day.
+/var/log/audit/audit.log {
+    daily
+    rotate {{ auditd_retention_days }}
+    missingok
+    notifempty
+    copytruncate
+    dateext
+}

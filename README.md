@@ -21,7 +21,7 @@ cloud-init ──▶ ansible-pull (git clone) ──▶ local.yml ──▶ 9 ha
 | Updates | unattended-upgrades (security origin), daily apt timers |
 | Firewall | UFW default-deny incoming, SSH allowlisted (with lockout guards) |
 | fail2ban | sshd jail via systemd journal, bans through UFW |
-| Audit | auditd with a minimal CIS-derived ruleset |
+| Audit | auditd, minimal CIS-derived ruleset; age-only daily rotation kept 180 days, halt under 1 GB free |
 | Time | systemd-timesyncd with configurable NTP pool |
 | Services | rpcbind/cups disabled; snapd removed (toggle) — AppArmor unaffected |
 | Docker *(off)* | `docker.io` + `docker-compose-v2`, json-file logs rotated 10m×3, live-restore |
@@ -106,6 +106,23 @@ Three independent guards, by design:
 The sshd drop-in is validated with `sshd -t` before reload, sudoers changes
 with `visudo -cf`, and the firewall role self-pings the host after enabling
 UFW. Keep your current session open until a **new** SSH connection works.
+
+## Audit log retention
+
+Audit logs rotate **by age only**: auditd's own size/number rotation is
+disabled and a daily timer (`ansible-auditd-archive.timer`) runs logrotate
+with `copytruncate` — no daemon restart needed. `auditd_retention_days`
+plain-text daily files are kept (180 ≈ 6 months, well under 200 MB at this
+ruleset's volume) and stay directly searchable:
+
+```
+sudo ausearch -if /var/log/audit/audit.log.1 -k identity
+```
+
+Disk guards: syslog warning at 1.5 GB free, system halt at 1 GB — audit
+fails closed. Caveat: `copytruncate` can lose events written in the
+copy/truncate instant (accepted; the alternative fights auditd's
+`RefuseManualStop` lock).
 
 ## Snapd removal & AppArmor
 
