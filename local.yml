@@ -14,8 +14,7 @@
         state: absent
 
     - name: Ensure MOTD fragment directory exists
-      # Absent on minimal Ubuntu cloud images; ansible.builtin.copy does not
-      # create parent directories.
+      # Absent on minimal Ubuntu cloud images
       ansible.builtin.file:
         path: /etc/motd.d
         state: directory
