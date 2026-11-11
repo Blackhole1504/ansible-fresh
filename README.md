@@ -8,7 +8,6 @@ fetched and executed by **cloud-init** via `ansible-pull` from a git repo.
 
 ```
 cloud-init ──▶ ansible-pull (git clone) ──▶ local.yml ──▶ 9 hardening roles
-                                          └▶ +2 optional roles (toggles, default off)
 ```
 
 ## What it enforces
@@ -24,8 +23,6 @@ cloud-init ──▶ ansible-pull (git clone) ──▶ local.yml ──▶ 9 ha
 | Audit | auditd, minimal CIS-derived ruleset; age-only daily rotation kept 180 days, halt under 1 GB free |
 | Time | systemd-timesyncd with configurable NTP pool |
 | Services | rpcbind/cups disabled; snapd removed (toggle) — AppArmor unaffected |
-| Docker *(off)* | `docker.io` + `docker-compose-v2`, json-file logs rotated 10m×3, live-restore |
-| Proxy *(off)* | nginx installed, default site removed, 80/443 auto-allowed in UFW |
 
 ## Quickstart (Proxmox VE)
 
@@ -84,8 +81,7 @@ Every role is idempotent — a second run should report zero changes. Lint:
 All tunables live in **[`group_vars/all.yml`](group_vars/all.yml)** — the
 single source of truth, commented per role. Per-deployment overrides: edit
 the `write_files` block in the vendor config or pass `-e @your-vars.yml`.
-Two roles are opt-in via toggles there (`docker_host_enabled`,
-`reverse_proxy_enabled`, both default `false`); if the sudo admin user
+If the sudo admin user
 auto-detection ever fails or is ambiguous, set `sudo_admin_user` explicitly.
 
 ## Lockout safety
@@ -130,21 +126,21 @@ Removing snapd does **not** affect AppArmor (different packages; asserted
 every run via `aa-status --enabled`). Keep snap with
 `common_disable_snapd: false`.
 
-## Docker / reverse proxy later
+## Docker compatibility
 
-With both toggles off, the baseline installs neither — but adds **no kernel
-rule that would block them later**:
+Docker (and any reverse proxy) is **not managed here** — a separate playbook
+installs and configures them. This baseline adds no kernel rule that would
+block that install:
 
 - `net.ipv4.ip_forward = 0` is written by the sysctl role, but `dockerd`
   sets it to 1 at daemon start, so Docker works regardless.
 - `rp_filter` is absent from the sysctl drop-in (a strict value breaks
   Docker bridge networking; Ubuntu's loose default is docker-safe).
-- Flipping `docker_host_enabled`/`reverse_proxy_enabled` to `true` opens
-  UFW ports (`80`/`443`) and sets `ip_forward=1` in the same run.
 
 Note: Docker bypasses UFW for published container ports (`-p 8080:80` is
 open even under default-deny) — restrict published ports at the Docker
-level or front them with the reverse proxy.
+level or front them with the reverse proxy (ports 80/443 are not opened
+by this playbook; the other playbook owns those UFW rules).
 
 ## Dependencies
 
@@ -165,7 +161,6 @@ cloud-init/vendor-config.yaml  Proxmox cicustom vendor slot
 roles/
   common/  timesync/  ssh_hardening/  sudo_hardening/  sysctl_hardening/
   unattended_upgrades/  firewall/  fail2ban/  auditd/
-  docker_host/  reverse_proxy/          # optional (toggles, default off)
 ```
 
 ## Limitations

@@ -1,8 +1,0 @@
----
-# docker_host handlers.
-# NOTE: no `block:` here — blocks in handlers require ansible-core 2.18+
-# and noble ships 2.16.
-- name: Restart docker
-  ansible.builtin.systemd:
-    name: docker
-    state: restarted

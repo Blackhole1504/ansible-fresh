@@ -1,7 +1,5 @@
 # Kernel and network hardening managed by ansible-fresh.
-# Generated from sysctl_settings_base (+ sysctl_settings_docker when
-# docker_host_enabled) — edit group_vars/all.yml, not this file.
-{% set settings = sysctl_settings_base | combine(sysctl_settings_docker if docker_host_enabled | bool else {}) %}
-{% for item in settings | dict2items %}
+# Generated from sysctl_settings_base — edit group_vars/all.yml, not this file.
+{% for item in sysctl_settings_base | dict2items %}
 {{ item.key }} = {{ item.value }}
 {% endfor %}

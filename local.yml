@@ -53,16 +53,10 @@
       tags: [ssh_hardening]
     - role: sudo_hardening
       tags: [sudo_hardening]
-    - role: docker_host
-      tags: [docker_host]
-      when: docker_host_enabled | bool
     - role: sysctl_hardening
       tags: [sysctl_hardening]
     - role: unattended_upgrades
       tags: [unattended_upgrades]
-    - role: reverse_proxy
-      tags: [reverse_proxy]
-      when: reverse_proxy_enabled | bool
     - role: firewall
       tags: [firewall]
     - role: fail2ban

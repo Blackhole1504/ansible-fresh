@@ -19,3 +19,4 @@ rules:
 ignore: |
   cloud-init/
   .cache/
+  .ansible/

@@ -9,12 +9,11 @@ supported_ubuntu_versions:
   - "24.04"
   - "26.04"
 
-# --- Optional roles (local.yml toggles) ------------------------------------
-# Baseline hardening only — neither is installed by default. The baseline
-# adds no kernel rule that would block a later Docker/nginx install (see
-# README "Docker / reverse proxy later").
-docker_host_enabled: false
-reverse_proxy_enabled: false
+# --- Docker / reverse proxy ------------------------------------------------
+# NOT managed by this playbook — a separate playbook installs and configures
+# them. This baseline stays Docker-compatible: it adds no kernel rule that
+# would block a later Docker install (see the sysctl note below and README
+# "Docker compatibility").
 
 # --- common role ----------------------------------------------------------
 common_timezone: Europe/Paris
@@ -92,12 +91,12 @@ sudo_admin_user: ""
 sudo_remove_cloudinit_sudoers: true
 
 # --- sysctl_hardening role ------------------------------------------------
-# Applied via /etc/sysctl.d/60-ansible-hardening.conf (dicts -> template).
-# sysctl_settings_base always applies; sysctl_settings_docker is merged over
-# it by the template when docker_host_enabled is true.
-# NOTE: rp_filter is deliberately absent from both dicts — Docker does not
-# manage it and a strict value (1) breaks Docker bridge networking; unset,
-# the distro default (loose rp_filter=2) is docker-safe.
+# Applied via /etc/sysctl.d/60-ansible-hardening.conf (sysctl_settings_base
+# -> template).
+# NOTE: rp_filter is deliberately absent — Docker does not manage it and a
+# strict value (1) breaks Docker bridge networking (relevant: a separate
+# playbook installs Docker on these hosts); unset, the distro default (loose
+# rp_filter=2) is docker-safe.
 sysctl_settings_base:
   # Network: no routing/redirects/source-route
   net.ipv4.ip_forward: 0
@@ -130,31 +129,18 @@ sysctl_settings_base:
   net.ipv4.icmp_ignore_bogus_error_responses: 1
   net.core.bpf_jit_harden: 2
 
-# Merged over the base dict by the template when docker_host_enabled is
-# true — keeps ip_forward=1 stable across reboots on docker hosts (dockerd
-# sets it at start anyway; with the toggle off, a manual Docker install
-# overrides our ip_forward=0 the same way).
-sysctl_settings_docker:
-  net.ipv4.ip_forward: 1
-
 # --- unattended_upgrades role ----------------------------------------------
 unattended_automatic_reboot: false
 unattended_automatic_reboot_time: "02:00"
 unattended_update_interval_days: 1
 
-# --- docker_host role ------------------------------------------------------
-# Installed only when docker_host_enabled is true (both packages verified
-# in Ubuntu universe on 24.04 and 26.04).
-docker_packages:
-  - docker.io
-  - docker-compose-v2
-
 # --- firewall role (UFW) ---------------------------------------------------
 firewall_default_incoming: deny
 firewall_default_outgoing: allow
 # MUST include the SSH port or you lock yourself out.
-# Web ports are appended automatically when reverse_proxy_enabled is true.
-firewall_allowed_tcp_ports: "{{ [ssh_port | string] + (['80', '443'] if reverse_proxy_enabled | bool else []) }}"
+# Web ports (80/443) for the reverse proxy are NOT opened here — the
+# separate playbook that manages it owns those UFW rules.
+firewall_allowed_tcp_ports: "{{ [ssh_port | string] }}"
 firewall_allowed_udp_ports: []
 firewall_logging: "low"
 
