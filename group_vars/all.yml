@@ -10,10 +10,9 @@ supported_ubuntu_versions:
   - "26.04"
 
 # --- Docker / reverse proxy ------------------------------------------------
-# NOT managed by this playbook — a separate playbook installs and configures
-# them. This baseline stays Docker-compatible: it adds no kernel rule that
-# would block a later Docker install (see the sysctl note below and README
-# "Docker compatibility").
+# Not managed by this playbook. The baseline stays Docker-compatible: it
+# adds no kernel rule that would block a later Docker install (see the
+# sysctl note below and README "Docker compatibility").
 
 # --- common role ----------------------------------------------------------
 common_timezone: Europe/Paris
@@ -94,8 +93,7 @@ sudo_remove_cloudinit_sudoers: true
 # Applied via /etc/sysctl.d/60-ansible-hardening.conf (sysctl_settings_base
 # -> template).
 # NOTE: rp_filter is deliberately absent — Docker does not manage it and a
-# strict value (1) breaks Docker bridge networking (relevant: a separate
-# playbook installs Docker on these hosts); unset, the distro default (loose
+# strict value (1) breaks Docker bridge networking; unset, the distro default (loose
 # rp_filter=2) is docker-safe.
 sysctl_settings_base:
   # Network: no routing/redirects/source-route
@@ -138,8 +136,8 @@ unattended_update_interval_days: 1
 firewall_default_incoming: deny
 firewall_default_outgoing: allow
 # MUST include the SSH port or you lock yourself out.
-# Web ports (80/443) for the reverse proxy are NOT opened here — the
-# separate playbook that manages it owns those UFW rules.
+# Web ports (80/443) are not opened here — add them if you run a web
+# server or reverse proxy on this host.
 firewall_allowed_tcp_ports: "{{ [ssh_port | string] }}"
 firewall_allowed_udp_ports: []
 firewall_logging: "low"

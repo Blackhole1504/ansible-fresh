@@ -128,9 +128,7 @@ every run via `aa-status --enabled`). Keep snap with
 
 ## Docker compatibility
 
-Docker (and any reverse proxy) is **not managed here** — a separate playbook
-installs and configures them. This baseline adds no kernel rule that would
-block that install:
+This baseline adds no kernel rule that would block a Docker install:
 
 - `net.ipv4.ip_forward = 0` is written by the sysctl role, but `dockerd`
   sets it to 1 at daemon start, so Docker works regardless.
@@ -139,8 +137,7 @@ block that install:
 
 Note: Docker bypasses UFW for published container ports (`-p 8080:80` is
 open even under default-deny) — restrict published ports at the Docker
-level or front them with the reverse proxy (ports 80/443 are not opened
-by this playbook; the other playbook owns those UFW rules).
+level or front them with the reverse proxy.
 
 ## Dependencies
 
