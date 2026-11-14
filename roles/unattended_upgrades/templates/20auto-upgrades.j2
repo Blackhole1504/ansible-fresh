@@ -1,2 +1,4 @@
-APT::Periodic::Update-Package-Lists "{{ unattended_update_interval_days }}";
-APT::Periodic::Unattended-Upgrade "{{ unattended_update_interval_days }}";
+// Managed by ansible-fresh — actions run on every ansible-apt-nightly.timer
+// firing (the timer owns the schedule; see group_vars/all.yml).
+APT::Periodic::Update-Package-Lists "always";
+APT::Periodic::Unattended-Upgrade "always";

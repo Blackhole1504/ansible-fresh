@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Nightly apt update + security upgrade (ansible-fresh)
+Wants=network-online.target
+After=network-online.target
+ConditionACPower=true
+
+[Service]
+Type=oneshot
+# Copied from the stock apt-daily-upgrade.service: wait for connectivity,
+# never SIGKILL dpkg mid-transaction on shutdown, allow long runs.
+ExecStartPre=-/usr/lib/apt/apt-helper wait-online
+ExecStart=/usr/lib/apt/apt.systemd.daily
+KillMode=process
+TimeoutStartSec=0
+TimeoutStopSec=900

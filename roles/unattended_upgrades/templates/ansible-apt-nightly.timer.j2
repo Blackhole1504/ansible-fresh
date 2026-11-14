@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Nightly apt update + security upgrade schedule (ansible-fresh)
+
+[Timer]
+# Randomized 22:00–05:40 window (see group_vars/all.yml). The service runs
+# apt.systemd.daily with no argument: update then upgrade, back-to-back.
+OnCalendar=*-*-* {{ unattended_nightly_window_start }}
+RandomizedDelaySec={{ unattended_nightly_window_max_delay }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

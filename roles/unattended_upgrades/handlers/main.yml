@@ -1,0 +1,7 @@
+---
+# Handlers for the unattended_upgrades role.
+- name: Restart ansible-apt-nightly timer
+  ansible.builtin.systemd:
+    name: ansible-apt-nightly.timer
+    state: restarted
+    daemon_reload: true

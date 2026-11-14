@@ -18,9 +18,15 @@ Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
 // Email is disabled; rely on logs in /var/log/unattended-upgrades/.
 Unattended-Upgrade::Mail "false";
 
-// Automatic reboot (default off — see group_vars/all.yml).
+// Automatic reboot when /var/run/reboot-required exists after the nightly
+// run (see group_vars/all.yml). Slot: fixed hour, minute derived per host
+// from the FQDN hash so machines spread across the hour instead of firing
+// in lockstep. WithUsers=false skips the reboot if any user is logged in
+// at scheduling time.
+{% set unattended_reboot_minute = ((ansible_facts['fqdn'] | hash('md5'))[:8] | int(base=16)) % unattended_automatic_reboot_spread_minutes %}
 Unattended-Upgrade::Automatic-Reboot "{{ 'true' if unattended_automatic_reboot else 'false' }}";
-Unattended-Upgrade::Automatic-Reboot-Time "{{ unattended_automatic_reboot_time }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ unattended_automatic_reboot_hour }}:{{ '%02d' | format(unattended_reboot_minute) }}";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "{{ 'true' if unattended_automatic_reboot_with_users else 'false' }}";
 
 // Enable reporting via syslog.
 Unattended-Upgrade::SyslogEnable "true";

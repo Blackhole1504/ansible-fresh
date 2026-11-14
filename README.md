@@ -17,7 +17,7 @@ cloud-init ──▶ ansible-pull (git clone) ──▶ local.yml ──▶ 9 ha
 | SSH | Key-only auth, `PermitRootLogin no`, forwarding off, CIS-grade algorithms |
 | Sudo | Passwordless sudo for exactly one detected admin user; cloud-init's blanket grant removed |
 | Kernel | sysctl hardening: no routing/redirects, kptr/dmesg restrict, BPF hardening |
-| Updates | unattended-upgrades (security origin), daily apt timers |
+| Updates | unattended-upgrades (security origin) in a nightly 22:00–05:40 window — update+upgrade back-to-back; conditional auto-reboot 06:00–06:59 |
 | Firewall | UFW default-deny incoming, SSH allowlisted (with lockout guards) |
 | fail2ban | sshd jail via systemd journal, bans through UFW |
 | Audit | auditd, minimal CIS-derived ruleset; age-only daily rotation kept 180 days, halt under 1 GB free |
@@ -125,6 +125,37 @@ copy/truncate instant (accepted; the alternative fights auditd's
 Removing snapd does **not** affect AppArmor (different packages; asserted
 every run via `aa-status --enabled`). Keep snap with
 `common_disable_snapd: false`.
+
+## Nightly updates & reboots
+
+One ansible-managed timer (`ansible-apt-nightly.timer`) fires inside a
+randomized **22:00–05:40** window and runs apt's daily script with no
+argument — so `apt-get update` and `unattended-upgrade` execute
+back-to-back in a single run (zero gap between refresh and install). The
+stock `apt-daily`/`apt-daily-upgrade` timers are stopped and disabled;
+`APT::Periodic` intervals are set to `always` so the custom schedule is
+authoritative (masking the stock timers also silences the
+`apt-news`/`esm-cache` motd sidekicks — cosmetic).
+
+Only **security-pocket** origins are auto-installed (`-security`, plus
+ESM pockets when Ubuntu Pro is attached); `-updates` is never touched.
+Check on a live host:
+
+```
+sudo unattended-upgrade --dry-run --debug 2>&1 | grep 'Allowed origins'
+systemctl cat ansible-apt-nightly.timer && systemctl list-timers ansible-apt-nightly.timer
+```
+
+If the run leaves `/var/run/reboot-required`, the machine reboots in the
+**06:00–06:59** slot; the minute is derived from the host FQDN hash, so
+machines spread across the hour instead of rebooting in lockstep. The
+reboot is skipped when any user is logged in at scheduling time (checked
+during the nightly run — logins after scheduling do not block it), and
+new logins are refused in the last 5 minutes before it (`/run/nologin`).
+Reboots happen **without confirmation**. `Persistent=true` means a
+machine powered off overnight runs the missed window at next boot.
+Worst case: a run that finishes after its reboot time (e.g. started
+05:40 and overran) reboots immediately on completion.
 
 ## Docker compatibility
 

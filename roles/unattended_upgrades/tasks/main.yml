@@ -1,5 +1,7 @@
 ---
-# Automatic security updates via unattended-upgrades + apt timers.
+# Nightly update + security-upgrade pipeline: one custom systemd timer runs
+# apt's daily script with no argument (update then upgrade, back-to-back);
+# the stock apt-daily timers are disabled so the schedule stays ours.
 - name: Install unattended-upgrades
   ansible.builtin.apt:
     name:
@@ -7,13 +9,14 @@
       - apt-listchanges
     state: present
 
-- name: Deploy 20auto-upgrades
+- name: Deploy 20auto-upgrades (actions on every timer firing)
   ansible.builtin.template:
     src: 20auto-upgrades.j2
     dest: /etc/apt/apt.conf.d/20auto-upgrades
     owner: root
     group: root
     mode: "0644"
+  notify: Restart ansible-apt-nightly timer
 
 - name: Deploy 50unattended-upgrades
   ansible.builtin.template:
@@ -22,12 +25,38 @@
     owner: root
     group: root
     mode: "0644"
+  notify: Restart ansible-apt-nightly timer
 
-- name: Ensure apt-daily timers are enabled
+- name: Deploy nightly apt service unit
+  ansible.builtin.template:
+    src: ansible-apt-nightly.service.j2
+    dest: /etc/systemd/system/ansible-apt-nightly.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart ansible-apt-nightly timer
+
+- name: Deploy nightly apt timer unit
+  ansible.builtin.template:
+    src: ansible-apt-nightly.timer.j2
+    dest: /etc/systemd/system/ansible-apt-nightly.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart ansible-apt-nightly timer
+
+- name: Disable stock apt-daily timers (our timer owns the schedule)
   ansible.builtin.systemd:
     name: "{{ item }}"
-    enabled: true
-    state: started
+    enabled: false
+    state: stopped
   loop:
     - apt-daily.timer
     - apt-daily-upgrade.timer
+
+- name: Enable and start nightly apt timer
+  ansible.builtin.systemd:
+    name: ansible-apt-nightly.timer
+    enabled: true
+    state: started
+    daemon_reload: true

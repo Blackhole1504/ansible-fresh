@@ -128,9 +128,27 @@ sysctl_settings_base:
   net.core.bpf_jit_harden: 2
 
 # --- unattended_upgrades role ----------------------------------------------
-unattended_automatic_reboot: false
-unattended_automatic_reboot_time: "02:00"
-unattended_update_interval_days: 1
+# Nightly update + security-upgrade pipeline: ONE ansible-managed timer
+# (ansible-apt-nightly.timer) fires inside a randomized 22:00–05:40 window
+# and runs apt's daily script with no argument, so `apt-get update` and
+# `unattended-upgrade` execute back-to-back in one run (zero gap). The
+# stock apt-daily timers are stopped+disabled by the role; the script's
+# APT::Periodic intervals are set to "always" so the custom schedule is
+# authoritative. Only security-pocket origins are auto-installed (see the
+# 50unattended-upgrades template). If the run leaves
+# /var/run/reboot-required, an automatic reboot follows in the
+# 06:00–06:59 slot; the minute is derived from the host FQDN hash — stable
+# per machine, spread across machines (no lockstep). with_users=false
+# skips the reboot if anyone is logged in when it gets scheduled (checked
+# at the nightly run; later logins don't block it). Reboots are WITHOUT
+# confirmation. spread_minutes must stay <= 60 to remain inside the hour.
+unattended_nightly_window_start: "22:00"
+# 22:00 + 460 min = 05:40 (window end).
+unattended_nightly_window_max_delay: "460min"
+unattended_automatic_reboot: true
+unattended_automatic_reboot_hour: "06"
+unattended_automatic_reboot_spread_minutes: 60
+unattended_automatic_reboot_with_users: false
 
 # --- firewall role (UFW) ---------------------------------------------------
 firewall_default_incoming: deny
